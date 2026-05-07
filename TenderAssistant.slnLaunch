@@ -1,0 +1,11 @@
+[
+  {
+    "Name": "TenderAssistant Client",
+    "Projects": [
+      {
+        "Path": "src\\TenderAssistant.Client\\TenderAssistant.Client.csproj",
+        "Action": "Start"
+      }
+    ]
+  }
+]
