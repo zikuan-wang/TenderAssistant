@@ -108,6 +108,34 @@ public sealed class BidAssistFileCatalogService
         return CreateItem(item.FullPath, category, includePreview: true);
     }
 
+    public BidAssistFileItem LoadPageCount(BidAssistFileItem item)
+    {
+        if (item.FileType != BidAssistFileType.Pdf || item.PageCount is not null || !File.Exists(item.FullPath))
+        {
+            return item;
+        }
+
+        return new BidAssistFileItem
+        {
+            Id = item.Id,
+            CategoryCode = item.CategoryCode,
+            CategoryName = item.CategoryName,
+            FileName = item.FileName,
+            FullPath = item.FullPath,
+            FileType = item.FileType,
+            InsertMode = item.InsertMode,
+            SourceLabel = item.SourceLabel,
+            SizeText = item.SizeText,
+            PageCount = TryCountPdfPages(item.FullPath),
+            SyncToLocal = item.SyncToLocal,
+            LastModified = item.LastModified,
+            ExpiresAtUtc = item.ExpiresAtUtc,
+            PreviewText = item.PreviewText,
+            PreviewImagePath = item.PreviewImagePath,
+            IsPreviewLoaded = item.IsPreviewLoaded
+        };
+    }
+
     private static BidAssistFileItem? CreateItem(string path, BidAssistCategory category, bool includePreview = false)
     {
         if (!File.Exists(path))

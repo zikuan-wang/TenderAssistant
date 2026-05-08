@@ -26,6 +26,7 @@ public sealed class BidAssistPageViewModel : ObservableObject
     private string _statusMessage = "请选择本地文件后插入到当前 Word/WPS 光标位置。";
     private bool _isApplyingPreview;
     private int _previewLoadVersion;
+    private int _pageCountLoadVersion;
 
     public BidAssistPageViewModel()
     {
@@ -217,6 +218,7 @@ public sealed class BidAssistPageViewModel : ObservableObject
         AllFiles.RemoveAll(static item => item.CategoryCode != "custom");
         AllFiles.AddRange(libraryFiles);
         RefreshVisibleFiles();
+        _ = LoadMissingPageCountsAsync();
         StatusMessage = IsActivated
             ? $"已刷新本地文件库，共 {AllFiles.Count} 个文件。"
             : "软件尚未激活。请在设置与日志中导出离线授权申请，导入激活文件后再使用插入功能。";
@@ -359,8 +361,94 @@ public sealed class BidAssistPageViewModel : ObservableObject
         PersistCustomFiles();
         SelectedCategory = Categories.Single(static item => item.Code == "custom");
         RefreshVisibleFiles();
+        _ = LoadMissingPageCountsAsync();
         StatusMessage = $"已导入 {imported} 个自定义文件。";
         OperationLogService.Info("bid-assist", "import-custom", StatusMessage);
+    }
+
+    private async Task LoadMissingPageCountsAsync()
+    {
+        var version = Interlocked.Increment(ref _pageCountLoadVersion);
+        var targets = AllFiles
+            .Where(static item => item.FileType == BidAssistFileType.Pdf && item.PageCount is null)
+            .ToArray();
+
+        if (targets.Length == 0)
+        {
+            return;
+        }
+
+        var updatedItems = await Task.Run(() => targets.Select(_catalogService.LoadPageCount).ToArray());
+        if (version != _pageCountLoadVersion)
+        {
+            return;
+        }
+
+        _isApplyingPreview = true;
+        try
+        {
+            foreach (var updatedItem in updatedItems)
+            {
+                ReplaceFileItem(updatedItem);
+            }
+        }
+        finally
+        {
+            _isApplyingPreview = false;
+        }
+    }
+
+    private void ReplaceFileItem(BidAssistFileItem updatedItem)
+    {
+        var allIndex = AllFiles.FindIndex(item => item.Id == updatedItem.Id);
+        if (allIndex >= 0)
+        {
+            updatedItem = MergeLoadedPreview(AllFiles[allIndex], updatedItem);
+            AllFiles[allIndex] = updatedItem;
+        }
+
+        var visibleItem = Files.FirstOrDefault(item => item.Id == updatedItem.Id);
+        if (visibleItem is not null)
+        {
+            var visibleIndex = Files.IndexOf(visibleItem);
+            if (visibleIndex >= 0)
+            {
+                Files[visibleIndex] = updatedItem;
+            }
+        }
+
+        if (SelectedFile?.Id == updatedItem.Id)
+        {
+            SelectedFile = updatedItem;
+        }
+    }
+
+    private static BidAssistFileItem MergeLoadedPreview(BidAssistFileItem currentItem, BidAssistFileItem updatedItem)
+    {
+        if (!currentItem.IsPreviewLoaded || updatedItem.IsPreviewLoaded)
+        {
+            return updatedItem;
+        }
+
+        return new BidAssistFileItem
+        {
+            Id = updatedItem.Id,
+            CategoryCode = updatedItem.CategoryCode,
+            CategoryName = updatedItem.CategoryName,
+            FileName = updatedItem.FileName,
+            FullPath = updatedItem.FullPath,
+            FileType = updatedItem.FileType,
+            InsertMode = updatedItem.InsertMode,
+            SourceLabel = updatedItem.SourceLabel,
+            SizeText = updatedItem.SizeText,
+            PageCount = updatedItem.PageCount,
+            SyncToLocal = updatedItem.SyncToLocal,
+            LastModified = updatedItem.LastModified,
+            ExpiresAtUtc = updatedItem.ExpiresAtUtc,
+            PreviewText = currentItem.PreviewText,
+            PreviewImagePath = currentItem.PreviewImagePath,
+            IsPreviewLoaded = true
+        };
     }
 
     private void LoadPersistedCustomFiles()
