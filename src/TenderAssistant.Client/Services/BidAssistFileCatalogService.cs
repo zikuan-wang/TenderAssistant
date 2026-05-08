@@ -178,20 +178,13 @@ public sealed class BidAssistFileCatalogService
 
     private static void EnsureLibraryFolders()
     {
-        foreach (var category in new[] { "technical", "business", "qualification", "custom" })
+        foreach (var category in GetLocalLibraryCategoryCodes())
         {
             Directory.CreateDirectory(Path.Combine(LibraryRoot, category));
         }
 
-        SeedTextFile(
-            Path.Combine(LibraryRoot, "technical", "技术方案示例.txt"),
-            "技术方案示例\r\n\r\n这里用于放置本地技术资料，可将 PDF、图片、Word 或 TXT 文件放入该目录。");
-        SeedTextFile(
-            Path.Combine(LibraryRoot, "business", "商务条款示例.txt"),
-            "商务条款示例\r\n\r\n这里用于放置本地商务资料，插入时默认按纯文本处理。");
-        SeedTextFile(
-            Path.Combine(LibraryRoot, "qualification", "资质说明示例.txt"),
-            "资质说明示例\r\n\r\n证书、扫描件和盖章文件建议使用 PDF 或图片格式。");
+        RemoveGeneratedSampleFiles();
+        RemoveEmptyCustomFolder();
     }
 
     private static string LibraryRoot => ClientAppSettingsService.FileLibraryCachePath;
@@ -210,21 +203,76 @@ public sealed class BidAssistFileCatalogService
             return false;
         }
 
+        ClearReadOnlyAttribute(item.FullPath);
         File.Delete(item.FullPath);
         var metadataPath = GetMetadataPath(item.FullPath);
         if (File.Exists(metadataPath))
         {
+            ClearReadOnlyAttribute(metadataPath);
             File.Delete(metadataPath);
         }
 
         return true;
     }
 
-    private static void SeedTextFile(string path, string content)
+    private static IReadOnlyList<string> GetLocalLibraryCategoryCodes()
     {
-        if (!File.Exists(path))
+        return ["technical", "business", "qualification"];
+    }
+
+    private static void RemoveGeneratedSampleFiles()
+    {
+        DeleteIfGeneratedSample(
+            Path.Combine(LibraryRoot, "technical", "技术方案示例.txt"),
+            "技术方案示例\r\n\r\n这里用于放置本地技术资料，可将 PDF、图片、Word 或 TXT 文件放入该目录。");
+        DeleteIfGeneratedSample(
+            Path.Combine(LibraryRoot, "business", "商务条款示例.txt"),
+            "商务条款示例\r\n\r\n这里用于放置本地商务资料，插入时默认按纯文本处理。");
+        DeleteIfGeneratedSample(
+            Path.Combine(LibraryRoot, "qualification", "资质说明示例.txt"),
+            "资质说明示例\r\n\r\n证书、扫描件和盖章文件建议使用 PDF 或图片格式。");
+    }
+
+    private static void DeleteIfGeneratedSample(string path, string generatedContent)
+    {
+        try
         {
-            File.WriteAllText(path, content, Encoding.UTF8);
+            if (!File.Exists(path) || File.ReadAllText(path, Encoding.UTF8) != generatedContent)
+            {
+                return;
+            }
+
+            ClearReadOnlyAttribute(path);
+            File.Delete(path);
+        }
+        catch
+        {
+            // Cleanup is best-effort; never block normal file library loading.
+        }
+    }
+
+    private static void RemoveEmptyCustomFolder()
+    {
+        try
+        {
+            var customFolder = Path.Combine(LibraryRoot, "custom");
+            if (Directory.Exists(customFolder) && !Directory.EnumerateFileSystemEntries(customFolder).Any())
+            {
+                Directory.Delete(customFolder);
+            }
+        }
+        catch
+        {
+            // If the folder is in use or not empty, keep it to avoid deleting user files.
+        }
+    }
+
+    private static void ClearReadOnlyAttribute(string path)
+    {
+        var attributes = File.GetAttributes(path);
+        if ((attributes & FileAttributes.ReadOnly) == FileAttributes.ReadOnly)
+        {
+            File.SetAttributes(path, attributes & ~FileAttributes.ReadOnly);
         }
     }
 
@@ -384,6 +432,12 @@ public sealed class BidAssistFileCatalogService
     {
         try
         {
+            var docnetCount = PdfPageRenderService.TryGetPageCount(path);
+            if (docnetCount is not null)
+            {
+                return docnetCount;
+            }
+
             var content = File.ReadAllText(path, Encoding.Latin1);
             var count = PdfPageRegex.Matches(content).Count;
             return count > 0 ? count : null;

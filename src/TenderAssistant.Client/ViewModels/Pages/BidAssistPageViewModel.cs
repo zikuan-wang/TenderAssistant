@@ -319,9 +319,18 @@ public sealed class BidAssistPageViewModel : ObservableObject
         }
 
         var fileName = SelectedFile.FileName;
-        if (!_catalogService.DeleteLocalCache(SelectedFile))
+        try
         {
-            StatusMessage = "当前文件不是本地文件库文件，不能在此处删除。";
+            if (!_catalogService.DeleteLocalCache(SelectedFile))
+            {
+                StatusMessage = "当前文件不是本地文件库文件，不能在此处删除。";
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"删除本地文件失败：{ex.Message}";
+            OperationLogService.Warning("bid-assist", "delete-local-cache-failed", StatusMessage);
             return;
         }
 

@@ -34,6 +34,20 @@ public static class PdfPageRenderService
         return result;
     }
 
+    public static int? TryGetPageCount(string pdfPath)
+    {
+        try
+        {
+            using var reader = DocLib.Instance.GetDocReader(pdfPath, new PageDimensions(1));
+            var pageCount = reader.GetPageCount();
+            return pageCount > 0 ? pageCount : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public static string? RenderFirstPagePreview(string pdfPath)
     {
         try
