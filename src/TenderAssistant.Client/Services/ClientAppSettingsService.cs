@@ -41,6 +41,43 @@ public static class ClientAppSettingsService
         }
     }
 
+    public static IReadOnlyList<string> CustomImportFilePaths
+    {
+        get
+        {
+            lock (Gate)
+            {
+                return Current.CustomImportFilePaths
+                    .Where(static path => !string.IsNullOrWhiteSpace(path))
+                    .Select(static path => path.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray();
+            }
+        }
+    }
+
+    public static void SetCustomImportFilePaths(IEnumerable<string> paths)
+    {
+        lock (Gate)
+        {
+            Current.CustomImportFilePaths = paths
+                .Where(static path => !string.IsNullOrWhiteSpace(path))
+                .Select(static path => path.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            Save();
+        }
+    }
+
+    public static void ClearCustomImportFilePaths()
+    {
+        lock (Gate)
+        {
+            Current.CustomImportFilePaths.Clear();
+            Save();
+        }
+    }
+
     private static string DefaultFileLibraryCachePath => Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "TenderAssistant",
@@ -94,5 +131,7 @@ public static class ClientAppSettingsService
         public string SourceFileLibraryPath { get; set; } = string.Empty;
 
         public string? Theme { get; set; }
+
+        public List<string> CustomImportFilePaths { get; set; } = [];
     }
 }

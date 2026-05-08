@@ -7,6 +7,7 @@
         Height="900"
         MinWidth="390"
         MinHeight="720"
+        Icon="Assets/AppIcon.ico"
         Background="{DynamicResource TenderAppBackgroundBrush}"
         TextElement.Foreground="{DynamicResource TenderTextBrush}"
         WindowStartupLocation="CenterScreen">

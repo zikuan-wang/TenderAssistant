@@ -52,6 +52,7 @@ public sealed class BidAssistPageViewModel : ObservableObject
             Categories.Add(category);
         }
 
+        LoadPersistedCustomFiles();
         SelectedCategory = Categories.FirstOrDefault();
         RefreshLibrary();
         OperationLogService.Info("bid-assist", "open", "打开标书辅助页面。");
@@ -218,6 +219,7 @@ public sealed class BidAssistPageViewModel : ObservableObject
     private void ClearCustomFiles()
     {
         var removed = AllFiles.RemoveAll(static item => item.CategoryCode == "custom");
+        ClientAppSettingsService.ClearCustomImportFilePaths();
         RefreshVisibleFiles();
         StatusMessage = $"已清除自定义导入列表 {removed} 项。";
         OperationLogService.Warning("bid-assist", "clear-custom", StatusMessage);
@@ -270,10 +272,33 @@ public sealed class BidAssistPageViewModel : ObservableObject
             imported++;
         }
 
+        PersistCustomFiles();
         SelectedCategory = Categories.Single(static item => item.Code == "custom");
         RefreshVisibleFiles();
         StatusMessage = $"已导入 {imported} 个自定义文件。";
         OperationLogService.Info("bid-assist", "import-custom", StatusMessage);
+    }
+
+    private void LoadPersistedCustomFiles()
+    {
+        foreach (var path in ClientAppSettingsService.CustomImportFilePaths)
+        {
+            var item = _catalogService.CreateCustomFile(path);
+            if (item is null || AllFiles.Any(existing => string.Equals(existing.FullPath, item.FullPath, StringComparison.OrdinalIgnoreCase)))
+            {
+                continue;
+            }
+
+            AllFiles.Add(item);
+        }
+    }
+
+    private void PersistCustomFiles()
+    {
+        ClientAppSettingsService.SetCustomImportFilePaths(
+            AllFiles
+                .Where(static item => item.CategoryCode == "custom")
+                .Select(static item => item.FullPath));
     }
 
     private void OpenSourceFile()

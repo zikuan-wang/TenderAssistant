@@ -5,11 +5,14 @@ namespace TenderAssistant.Client.Services;
 
 public sealed class OfflineLicenseService
 {
-    private static readonly string LicenseDirectory = Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-        "TenderAssistant");
+    private static readonly string LicenseDirectory =
+        Path.GetDirectoryName(Environment.ProcessPath) ?? AppContext.BaseDirectory;
 
     private static readonly string LicensePath = Path.Combine(LicenseDirectory, "license.bali");
+    private static readonly string LegacyLicensePath = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "TenderAssistant",
+        "license.bali");
 
     public string LicenseFilePath => LicensePath;
 
@@ -53,6 +56,8 @@ public sealed class OfflineLicenseService
 
     public LicenseValidationResult ValidateCurrent()
     {
+        TryMigrateLegacyLicense();
+
         if (!File.Exists(LicensePath))
         {
             return new LicenseValidationResult(false, "not_activated", "软件尚未激活。", null, DateTimeOffset.UtcNow);
@@ -68,6 +73,24 @@ public sealed class OfflineLicenseService
         catch (Exception ex)
         {
             return new LicenseValidationResult(false, "read_failed", $"读取本机授权失败：{ex.Message}", null, DateTimeOffset.UtcNow);
+        }
+    }
+
+    private static void TryMigrateLegacyLicense()
+    {
+        if (File.Exists(LicensePath) || !File.Exists(LegacyLicensePath))
+        {
+            return;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(LicenseDirectory);
+            File.Copy(LegacyLicensePath, LicensePath, overwrite: true);
+        }
+        catch
+        {
+            // If migration fails, normal validation will report the app as not activated.
         }
     }
 }

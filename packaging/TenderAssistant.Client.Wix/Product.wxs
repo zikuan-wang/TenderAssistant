@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
+  <Package
+      Name="投标助手"
+      Manufacturer="zikuan wang"
+      Version="1.0.0"
+      UpgradeCode="{7F41D5F4-11ED-4E72-B92D-3A6758A0DF43}"
+      Scope="perUser"
+      Codepage="936">
+
+    <MajorUpgrade DowngradeErrorMessage="已安装更新版本的投标助手。" />
+    <MediaTemplate EmbedCab="yes" />
+    <util:CloseApplication Id="CloseTenderAssistantClient"
+                           Target="TenderAssistant.Client.exe"
+                           CloseMessage="yes"
+                           RebootPrompt="no"
+                           ElevatedCloseMessage="yes"
+                           Timeout="10" />
+
+    <Icon Id="AppIcon.ico" SourceFile="$(var.ProjectDir)..\..\src\TenderAssistant.Client\Assets\AppIcon.ico" />
+    <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
+    <Property Id="REMEMBEREDINSTALLFOLDER">
+      <RegistrySearch Id="SearchRememberedInstallFolder"
+                      Root="HKCU"
+                      Key="Software\TenderAssistant"
+                      Name="InstallFolder"
+                      Type="raw" />
+    </Property>
+
+    <!-- 用户选择父目录，实际始终安装到其下的“投标助手”子目录。 -->
+    <Property Id="WIXUI_INSTALLDIR" Value="APPLICATIONROOTDIRECTORY" />
+    <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)License.rtf" />
+
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="APPLICATIONROOTDIRECTORY" Name="Programs">
+        <Directory Id="INSTALLFOLDER" Name="投标助手" />
+      </Directory>
+      <Directory Id="LegacyTenderAssistantLocalAppDataFolder" Name="TenderAssistant">
+        <Directory Id="LegacyClientInstallFolder" Name="Client" />
+      </Directory>
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="投标助手" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="DesktopFolder" />
+
+    <Feature Id="MainFeature" Title="投标助手" Level="1">
+      <ComponentGroupRef Id="ProductComponents" />
+    </Feature>
+
+    <ComponentGroup Id="ProductComponents">
+      <Component Id="ClientExecutableComponent" Directory="INSTALLFOLDER" Guid="{1803402F-E451-414B-85C5-B4BD11B56EF6}">
+        <File Id="ClientExecutable"
+              Source="$(var.PublishDir)\TenderAssistant.Client.exe" />
+        <RemoveFile Id="RemoveInstalledActivationFile"
+                    Name="license.bali"
+                    On="uninstall" />
+        <RemoveFile Id="RemoveLegacyInstallerExe"
+                    Name="TenderAssistant.Client.Setup.exe"
+                    On="both" />
+        <RemoveFile Id="RemoveLegacyInstallMetadata"
+                    Name="install.json"
+                    On="both" />
+        <RemoveFile Id="RemoveLegacyLicenseFile"
+                    Name="LICENSE"
+                    On="both" />
+        <util:RemoveFolderEx Id="RemoveInstallFolderTree"
+                             Property="REMEMBEREDINSTALLFOLDER"
+                             On="uninstall" />
+        <RemoveFolder Id="RemoveInstallFolderIfEmpty"
+                      Directory="INSTALLFOLDER"
+                      On="uninstall" />
+        <RemoveFolder Id="RemoveApplicationRootDirectoryIfEmpty"
+                      Directory="APPLICATIONROOTDIRECTORY"
+                      On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TenderAssistant"
+                       Name="ClientExecutableInstalled"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TenderAssistant"
+                       Name="InstallFolder"
+                       Type="string"
+                       Value="[INSTALLFOLDER]" />
+      </Component>
+
+      <Component Id="LicenseFileComponent" Directory="INSTALLFOLDER" Guid="{183307C5-34C7-447E-B793-7F67F3845681}">
+        <File Id="LicenseFile"
+              Source="$(var.ProjectDir)License.rtf" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TenderAssistant"
+                       Name="LicenseFileInstalled"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+
+      <Component Id="StartMenuShortcutComponent" Directory="ApplicationProgramsFolder" Guid="{4EFB256A-975F-4617-AC62-9570AE7A858E}">
+        <Shortcut Id="StartMenuShortcut"
+                  Directory="ApplicationProgramsFolder"
+                  Name="投标助手"
+                  Description="投标助手客户端"
+                  Target="[INSTALLFOLDER]TenderAssistant.Client.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico"
+                  Advertise="no" />
+        <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TenderAssistant"
+                       Name="StartMenuShortcutInstalled"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+
+      <Component Id="DesktopShortcutComponent" Directory="DesktopFolder" Guid="{0FBE3F64-4194-4596-B488-9CFE08AC4E3E}">
+        <Shortcut Id="DesktopShortcut"
+                  Directory="DesktopFolder"
+                  Name="投标助手"
+                  Description="投标助手客户端"
+                  Target="[INSTALLFOLDER]TenderAssistant.Client.exe"
+                  WorkingDirectory="INSTALLFOLDER"
+                  Icon="AppIcon.ico"
+                  Advertise="no" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TenderAssistant"
+                       Name="DesktopShortcutInstalled"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+
+      <Component Id="LegacyDefaultInstallFolderCleanupComponent" Directory="LegacyClientInstallFolder" Guid="{F5B35550-75E5-492C-9F3A-4967B314659E}">
+        <!-- 清理旧版自制安装器默认目录：%LOCALAPPDATA%\TenderAssistant\Client。只删除明确软件文件。 -->
+        <RemoveFile Id="RemoveLegacyDefaultClientExe"
+                    Name="TenderAssistant.Client.exe"
+                    On="both" />
+        <RemoveFile Id="RemoveLegacyDefaultInstallerExe"
+                    Name="TenderAssistant.Client.Setup.exe"
+                    On="both" />
+        <RemoveFile Id="RemoveLegacyDefaultInstallMetadata"
+                    Name="install.json"
+                    On="both" />
+        <RemoveFile Id="RemoveLegacyDefaultLicenseFile"
+                    Name="LICENSE"
+                    On="both" />
+        <RemoveFolder Id="RemoveLegacyClientInstallFolderIfEmpty"
+                      Directory="LegacyClientInstallFolder"
+                      On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TenderAssistant"
+                       Name="LegacyDefaultInstallFolderCleanupInstalled"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+
+      <Component Id="LegacyLicenseCleanupComponent" Directory="LegacyTenderAssistantLocalAppDataFolder" Guid="{13E8FAAA-3E72-4585-B54F-D3801529CE6C}">
+        <!-- 清理旧版授权存放位置：%LOCALAPPDATA%\TenderAssistant\license.bali。 -->
+        <RemoveFile Id="RemoveLegacyActivationFile"
+                    Name="license.bali"
+                    On="uninstall" />
+        <RemoveFolder Id="RemoveLegacyTenderAssistantLocalAppDataFolderIfEmpty"
+                      Directory="LegacyTenderAssistantLocalAppDataFolder"
+                      On="uninstall" />
+        <RegistryValue Root="HKCU"
+                       Key="Software\TenderAssistant"
+                       Name="LegacyLicenseCleanupInstalled"
+                       Type="integer"
+                       Value="1"
+                       KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <ui:WixUI Id="WixUI_InstallDir" />
+  </Package>
+</Wix>
