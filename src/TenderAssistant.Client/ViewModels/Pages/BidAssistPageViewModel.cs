@@ -20,8 +20,12 @@ public sealed class BidAssistPageViewModel : ObservableObject
     private WordInsertModeOption _selectedWordInsertMode;
     private bool _pageBreakBetweenPdfPages = true;
     private double _insertImageWidthCentimeters = 14;
+    private int _pdfFirstPageCount;
+    private int _pdfLastPageCount;
     private string _fileNameFilter = string.Empty;
     private string _statusMessage = "请选择本地文件后插入到当前 Word/WPS 光标位置。";
+    private bool _isApplyingPreview;
+    private int _previewLoadVersion;
 
     public BidAssistPageViewModel()
     {
@@ -41,7 +45,7 @@ public sealed class BidAssistPageViewModel : ObservableObject
 
         ImportCustomCommand = new RelayCommand(_ => ImportCustomFiles());
         ClearCustomCommand = new RelayCommand(_ => ClearCustomFiles(), _ => IsCustomCategorySelected && AllFiles.Any(static item => item.CategoryCode == "custom"));
-        RefreshCommand = new RelayCommand(_ => RefreshLibrary());
+        RefreshCommand = new AsyncRelayCommand(RefreshLibraryAsync);
         OpenSourceCommand = new RelayCommand(_ => OpenSourceFile(), _ => SelectedFile is not null);
         OpenLocalFolderCommand = new RelayCommand(_ => OpenLocalFolder(), _ => SelectedFile is not null);
         InsertSelectedCommand = new AsyncRelayCommand(InsertSelectedAsync, () => SelectedFile is not null);
@@ -89,6 +93,11 @@ public sealed class BidAssistPageViewModel : ObservableObject
         {
             if (SetProperty(ref _selectedFile, value))
             {
+                if (!_isApplyingPreview)
+                {
+                    Interlocked.Increment(ref _previewLoadVersion);
+                }
+
                 OpenSourceCommand.RaiseCanExecuteChanged();
                 OpenLocalFolderCommand.RaiseCanExecuteChanged();
                 InsertSelectedCommand.RaiseCanExecuteChanged();
@@ -99,6 +108,11 @@ public sealed class BidAssistPageViewModel : ObservableObject
                 OnPropertyChanged(nameof(HasImagePreview));
                 OnPropertyChanged(nameof(HasTextPreview));
                 OnPropertyChanged(nameof(IsCustomCategorySelected));
+
+                if (!_isApplyingPreview && value is { IsPreviewLoaded: false })
+                {
+                    _ = LoadSelectedFilePreviewAsync(value);
+                }
             }
         }
     }
@@ -125,6 +139,18 @@ public sealed class BidAssistPageViewModel : ObservableObject
     {
         get => _insertImageWidthCentimeters;
         set => SetProperty(ref _insertImageWidthCentimeters, Math.Clamp(value, 1, 40));
+    }
+
+    public int PdfFirstPageCount
+    {
+        get => _pdfFirstPageCount;
+        set => SetProperty(ref _pdfFirstPageCount, Math.Clamp(value, 0, 999));
+    }
+
+    public int PdfLastPageCount
+    {
+        get => _pdfLastPageCount;
+        set => SetProperty(ref _pdfLastPageCount, Math.Clamp(value, 0, 999));
     }
 
     public string FileNameFilter
@@ -163,7 +189,7 @@ public sealed class BidAssistPageViewModel : ObservableObject
 
     public RelayCommand ClearCustomCommand { get; }
 
-    public RelayCommand RefreshCommand { get; }
+    public AsyncRelayCommand RefreshCommand { get; }
 
     public RelayCommand OpenSourceCommand { get; }
 
@@ -177,8 +203,19 @@ public sealed class BidAssistPageViewModel : ObservableObject
 
     private void RefreshLibrary()
     {
+        ApplyLibraryFiles(_catalogService.LoadLibraryFiles());
+    }
+
+    private async Task RefreshLibraryAsync()
+    {
+        var libraryFiles = await Task.Run(_catalogService.LoadLibraryFiles);
+        ApplyLibraryFiles(libraryFiles);
+    }
+
+    private void ApplyLibraryFiles(IReadOnlyList<BidAssistFileItem> libraryFiles)
+    {
         AllFiles.RemoveAll(static item => item.CategoryCode != "custom");
-        AllFiles.AddRange(_catalogService.LoadLibraryFiles());
+        AllFiles.AddRange(libraryFiles);
         RefreshVisibleFiles();
         StatusMessage = IsActivated
             ? $"已刷新本地文件库，共 {AllFiles.Count} 个文件。"
@@ -188,6 +225,7 @@ public sealed class BidAssistPageViewModel : ObservableObject
 
     private void RefreshVisibleFiles()
     {
+        var selectedId = SelectedFile?.Id;
         Files.Clear();
         var categoryCode = SelectedCategory?.Code;
         foreach (var item in AllFiles.Where(item => MatchesVisibleFilter(item, categoryCode)))
@@ -195,9 +233,55 @@ public sealed class BidAssistPageViewModel : ObservableObject
             Files.Add(item);
         }
 
-        SelectedFile = Files.FirstOrDefault();
+        SelectedFile = selectedId is null ? null : Files.FirstOrDefault(item => item.Id == selectedId);
         ClearCustomCommand.RaiseCanExecuteChanged();
         OnPropertyChanged(nameof(IsCustomCategorySelected));
+    }
+
+    private async Task LoadSelectedFilePreviewAsync(BidAssistFileItem file)
+    {
+        var version = _previewLoadVersion;
+        BidAssistFileItem? previewItem;
+        try
+        {
+            previewItem = await Task.Run(() => _catalogService.LoadPreview(file));
+        }
+        catch (Exception ex)
+        {
+            if (ReferenceEquals(SelectedFile, file))
+            {
+                StatusMessage = $"加载预览失败：{ex.Message}";
+            }
+
+            return;
+        }
+
+        if (version != _previewLoadVersion || previewItem is null)
+        {
+            return;
+        }
+
+        var allIndex = AllFiles.FindIndex(item => item.Id == file.Id);
+        if (allIndex >= 0)
+        {
+            AllFiles[allIndex] = previewItem;
+        }
+
+        var visibleIndex = Files.IndexOf(file);
+        if (visibleIndex >= 0)
+        {
+            Files[visibleIndex] = previewItem;
+        }
+
+        _isApplyingPreview = true;
+        try
+        {
+            SelectedFile = previewItem;
+        }
+        finally
+        {
+            _isApplyingPreview = false;
+        }
     }
 
     private bool MatchesVisibleFilter(BidAssistFileItem item, string? categoryCode)
@@ -374,7 +458,14 @@ public sealed class BidAssistPageViewModel : ObservableObject
 
     private void InsertOne(BidAssistFileItem item)
     {
-        var result = _insertService.Insert(item, SelectedPdfQuality, SelectedWordInsertMode, PageBreakBetweenPdfPages, InsertImageWidthCentimeters);
+        var result = _insertService.Insert(
+            item,
+            SelectedPdfQuality,
+            SelectedWordInsertMode,
+            PageBreakBetweenPdfPages,
+            InsertImageWidthCentimeters,
+            PdfFirstPageCount,
+            PdfLastPageCount);
         var status = result.IsSuccess ? "成功" : "失败";
         InsertLogs.Insert(0, new BidAssistInsertLogItem(DateTime.Now, item.FileName, result.TargetSoftware, status, result.Message));
         StatusMessage = $"{item.FileName}：{status}。{result.Message}";

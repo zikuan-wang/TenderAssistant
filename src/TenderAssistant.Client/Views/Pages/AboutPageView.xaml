@@ -22,7 +22,7 @@
                                Text="当前版本" />
                     <TextBlock Text="投标助手 本地离线版" />
                     <TextBlock Margin="0,6,0,0"
-                               Text="版本：1.0.0" />
+                               Text="{Binding VersionText}" />
                     <TextBlock Margin="0,6,0,0"
                                Text=".NET 8 / WPF / Material Design in XAML" />
                 </StackPanel>

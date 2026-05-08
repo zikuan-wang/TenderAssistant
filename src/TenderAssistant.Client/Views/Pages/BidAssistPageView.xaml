@@ -127,6 +127,20 @@
                     <TextBox Margin="0,6,0,0"
                              materialDesign:HintAssist.Hint="图片/PDF 宽度 cm"
                              Text="{Binding InsertImageWidthCentimeters, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, StringFormat=0.#}" />
+                    <Grid Margin="0,6,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox materialDesign:HintAssist.Hint="PDF 前 N 页"
+                                 ToolTip="0 表示不限制；前 N 页和后 N 页都为 0 时导入全部页面。"
+                                 Text="{Binding PdfFirstPageCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                        <TextBox Grid.Column="1"
+                                 Margin="6,0,0,0"
+                                 materialDesign:HintAssist.Hint="PDF 后 N 页"
+                                 ToolTip="0 表示不选择后部页面；前 N 页和后 N 页都为 0 时导入全部页面。"
+                                 Text="{Binding PdfLastPageCount, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </Grid>
                     <WrapPanel Margin="0,8,0,0"
                                HorizontalAlignment="Right">
                         <Button Style="{StaticResource MaterialSecondaryButtonStyle}"

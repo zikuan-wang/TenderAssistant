@@ -32,6 +32,8 @@ public sealed class BidAssistFileItem
 
     public string? PreviewImagePath { get; init; }
 
+    public bool IsPreviewLoaded { get; init; }
+
     public bool HasImagePreview => (FileType == BidAssistFileType.Image || FileType == BidAssistFileType.Pdf) && !string.IsNullOrWhiteSpace(PreviewImagePath);
 
     public bool HasTextPreview => !HasImagePreview;

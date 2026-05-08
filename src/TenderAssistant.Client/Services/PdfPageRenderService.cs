@@ -17,10 +17,16 @@ public static class PdfPageRenderService
 
     public static IReadOnlyList<string> RenderAllPages(string pdfPath, int dpi)
     {
+        return RenderSelectedPages(pdfPath, dpi, 0, 0);
+    }
+
+    public static IReadOnlyList<string> RenderSelectedPages(string pdfPath, int dpi, int firstPageCount, int lastPageCount)
+    {
         using var reader = DocLib.Instance.GetDocReader(pdfPath, new PageDimensions(dpi / 72.0));
         var pageCount = reader.GetPageCount();
-        var result = new List<string>(pageCount);
-        for (var index = 0; index < pageCount; index++)
+        var pageIndexes = GetSelectedPageIndexes(pageCount, firstPageCount, lastPageCount);
+        var result = new List<string>(pageIndexes.Count);
+        foreach (var index in pageIndexes)
         {
             result.Add(RenderPage(reader, pdfPath, index, dpi));
         }
@@ -63,6 +69,34 @@ public static class PdfPageRenderService
         return outputPath;
     }
 
+    private static IReadOnlyList<int> GetSelectedPageIndexes(int pageCount, int firstPageCount, int lastPageCount)
+    {
+        if (pageCount <= 0)
+        {
+            return [];
+        }
+
+        var first = Math.Clamp(firstPageCount, 0, pageCount);
+        var last = Math.Clamp(lastPageCount, 0, pageCount);
+        if (first == 0 && last == 0)
+        {
+            return Enumerable.Range(0, pageCount).ToArray();
+        }
+
+        var selected = new SortedSet<int>();
+        for (var index = 0; index < first; index++)
+        {
+            selected.Add(index);
+        }
+
+        for (var index = Math.Max(0, pageCount - last); index < pageCount; index++)
+        {
+            selected.Add(index);
+        }
+
+        return selected.ToArray();
+    }
+
     private static string CreateCacheKey(string path, int pageIndex, int dpi)
     {
         var file = new FileInfo(path);
@@ -70,4 +104,3 @@ public static class PdfPageRenderService
         return Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(raw))).ToLowerInvariant();
     }
 }
-

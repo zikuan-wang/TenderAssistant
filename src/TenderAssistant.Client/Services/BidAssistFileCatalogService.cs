@@ -11,6 +11,8 @@ namespace TenderAssistant.Client.Services;
 
 public sealed class BidAssistFileCatalogService
 {
+    public const string DeferredPreviewText = "已加载文件清单。选择文件后再读取预览，避免刷新文件库时卡顿。";
+
     private static readonly Regex PdfPageRegex = new(@"/Type\s*/Page\b", RegexOptions.Compiled);
     private static readonly Regex PdfTextRegex = new(@"\((?<text>(?:\\.|[^\\)])*)\)\s*Tj", RegexOptions.Compiled);
     private static readonly Regex RtfControlRegex = new(@"\\[a-z]+\d* ?|[{}]", RegexOptions.Compiled | RegexOptions.IgnoreCase);
@@ -99,7 +101,14 @@ public sealed class BidAssistFileCatalogService
         return CreateItem(path, custom);
     }
 
-    private static BidAssistFileItem? CreateItem(string path, BidAssistCategory category)
+    public BidAssistFileItem? LoadPreview(BidAssistFileItem item)
+    {
+        var category = GetCategories().FirstOrDefault(category => string.Equals(category.Code, item.CategoryCode, StringComparison.OrdinalIgnoreCase))
+            ?? new BidAssistCategory(item.CategoryCode, item.CategoryName, item.SyncToLocal, string.Empty);
+        return CreateItem(item.FullPath, category, includePreview: true);
+    }
+
+    private static BidAssistFileItem? CreateItem(string path, BidAssistCategory category, bool includePreview = false)
     {
         if (!File.Exists(path))
         {
@@ -108,8 +117,8 @@ public sealed class BidAssistFileCatalogService
 
         var file = new FileInfo(path);
         var type = DetectType(file.Extension);
-        var pageCount = type == BidAssistFileType.Pdf ? TryCountPdfPages(path) : null;
-        var preview = CreatePreview(file, type, pageCount);
+        var pageCount = includePreview && type == BidAssistFileType.Pdf ? TryCountPdfPages(path) : null;
+        var preview = includePreview ? CreatePreview(file, type, pageCount) : DeferredPreviewText;
         var metadata = ReadMetadata(file.FullName);
 
         return new BidAssistFileItem
@@ -128,7 +137,14 @@ public sealed class BidAssistFileCatalogService
             LastModified = file.LastWriteTime,
             ExpiresAtUtc = metadata?.ExpiresAtUtc,
             PreviewText = preview,
-            PreviewImagePath = type == BidAssistFileType.Image ? file.FullName : type == BidAssistFileType.Pdf ? PdfPageRenderService.RenderFirstPagePreview(file.FullName) : null
+            PreviewImagePath = includePreview
+                ? type == BidAssistFileType.Image
+                    ? file.FullName
+                    : type == BidAssistFileType.Pdf
+                        ? PdfPageRenderService.RenderFirstPagePreview(file.FullName)
+                        : null
+                : null,
+            IsPreviewLoaded = includePreview
         };
     }
 

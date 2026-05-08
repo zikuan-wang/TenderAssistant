@@ -11,7 +11,14 @@ public sealed class OfficeDocumentInsertService
 {
     private const double PointsPerCentimeter = 28.3464567;
 
-    public OfficeInsertResult Insert(BidAssistFileItem item, PdfQualityOption quality, WordInsertModeOption wordMode, bool pageBreakBetweenPdfPages, double imageWidthCentimeters)
+    public OfficeInsertResult Insert(
+        BidAssistFileItem item,
+        PdfQualityOption quality,
+        WordInsertModeOption wordMode,
+        bool pageBreakBetweenPdfPages,
+        double imageWidthCentimeters,
+        int pdfFirstPageCount,
+        int pdfLastPageCount)
     {
         ArgumentNullException.ThrowIfNull(item);
 
@@ -33,7 +40,7 @@ public sealed class OfficeDocumentInsertService
                 BidAssistFileType.Image => InsertImage(context, item, imageWidthCentimeters),
                 BidAssistFileType.Text => InsertText(context, item),
                 BidAssistFileType.Word => InsertWord(context, item, wordMode),
-                BidAssistFileType.Pdf => InsertPdf(context, item, quality, pageBreakBetweenPdfPages, imageWidthCentimeters),
+                BidAssistFileType.Pdf => InsertPdf(context, item, quality, pageBreakBetweenPdfPages, imageWidthCentimeters, pdfFirstPageCount, pdfLastPageCount),
                 _ => OfficeInsertResult.Fail("该文件类型暂不支持插入。")
             };
         }
@@ -137,12 +144,24 @@ public sealed class OfficeDocumentInsertService
         }
     }
 
-    private static OfficeInsertResult InsertPdf(OfficeContext context, BidAssistFileItem item, PdfQualityOption quality, bool pageBreakBetweenPdfPages, double imageWidthCentimeters)
+    private static OfficeInsertResult InsertPdf(
+        OfficeContext context,
+        BidAssistFileItem item,
+        PdfQualityOption quality,
+        bool pageBreakBetweenPdfPages,
+        double imageWidthCentimeters,
+        int pdfFirstPageCount,
+        int pdfLastPageCount)
     {
         dynamic selection = context.Application.Selection;
         try
         {
-            var pageImages = PdfPageRenderService.RenderAllPages(item.FullPath, quality.Dpi);
+            var pageImages = PdfPageRenderService.RenderSelectedPages(item.FullPath, quality.Dpi, pdfFirstPageCount, pdfLastPageCount);
+            if (pageImages.Count == 0)
+            {
+                return OfficeInsertResult.Fail("PDF 未找到可插入页面。");
+            }
+
             for (var index = 0; index < pageImages.Count; index++)
             {
                 if (index > 0 && pageBreakBetweenPdfPages)
@@ -153,7 +172,10 @@ public sealed class OfficeDocumentInsertService
                 InsertImage(context, CreateImageInsertItem(item, pageImages[index], index + 1), imageWidthCentimeters);
             }
 
-            return OfficeInsertResult.Success(context.SoftwareName, $"PDF 已转换为 {pageImages.Count} 张图片，并按 {Math.Clamp(imageWidthCentimeters, 1, 40):0.#}cm 宽度逐页插入。");
+            var pageRangeText = pdfFirstPageCount <= 0 && pdfLastPageCount <= 0
+                ? "全部页面"
+                : $"前 {Math.Max(0, pdfFirstPageCount)} 页 + 后 {Math.Max(0, pdfLastPageCount)} 页";
+            return OfficeInsertResult.Success(context.SoftwareName, $"PDF 已按 {pageRangeText} 转换为 {pageImages.Count} 张图片，并按 {Math.Clamp(imageWidthCentimeters, 1, 40):0.#}cm 宽度逐页插入。");
         }
         catch (Exception renderException)
         {

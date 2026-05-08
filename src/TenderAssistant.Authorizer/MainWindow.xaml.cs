@@ -89,7 +89,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             new DateTimeOffset(ExpiresAt.Value.Date.AddDays(1).AddTicks(-1)),
             string.IsNullOrWhiteSpace(Edition) ? "Standard" : Edition.Trim());
 
-        var envelope = OfflineLicenseCrypto.Sign(payload);
+        var envelope = OfflineLicenseIssuer.Sign(payload);
         var dialog = new SaveFileDialog
         {
             FileName = $"TenderAssistant-Activation-{_request.MachineName}-{DateTime.Now:yyyyMMddHHmmss}.bali",
