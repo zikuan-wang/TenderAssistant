@@ -5,7 +5,7 @@
   <Package
       Name="投标助手"
       Manufacturer="zikuan wang"
-      Version="1.0.4"
+      Version="1.1.0"
       UpgradeCode="{7F41D5F4-11ED-4E72-B92D-3A6758A0DF43}"
       Scope="perUser"
       Codepage="936">

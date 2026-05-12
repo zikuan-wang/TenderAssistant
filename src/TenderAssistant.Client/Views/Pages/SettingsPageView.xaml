@@ -13,7 +13,7 @@
                        Text="设置与日志" />
             <TextBlock Margin="0,2,0,8"
                        Opacity="0.72"
-                       Text="配置本地文件库、离线授权和操作日志。软件全程离线运行。"
+                       Text="配置本地文件库、离线授权、在线更新和操作日志。除更新检查外，核心功能本地运行。"
                        TextWrapping="Wrap" />
 
             <materialDesign:Card>
@@ -87,6 +87,36 @@
                             Style="{StaticResource MaterialPrimaryButtonStyle}"
                             Command="{Binding SyncFileLibraryCommand}"
                             Content="同步文件库" />
+                </StackPanel>
+            </materialDesign:Card>
+
+            <materialDesign:Card>
+                <StackPanel>
+                    <TextBlock Style="{StaticResource SectionTitleStyle}"
+                               Text="在线更新" />
+                    <TextBlock Opacity="0.66"
+                               Text="更新源：GitHub Release。私有仓库需要登录或公开 Release 才能被客户端访问。"
+                               TextWrapping="Wrap" />
+                    <TextBlock Margin="0,8,0,0"
+                               Text="{Binding CurrentVersionText}" />
+                    <TextBlock Margin="0,4,0,0"
+                               Opacity="0.72"
+                               Text="{Binding UpdateStatusMessage}"
+                               TextWrapping="Wrap" />
+                    <WrapPanel Margin="0,8,0,0"
+                               HorizontalAlignment="Right">
+                        <Button Style="{StaticResource MaterialSecondaryButtonStyle}"
+                                Command="{Binding OpenReleasePageCommand}"
+                                Content="打开更新源" />
+                        <Button Margin="8,0,0,0"
+                                Style="{StaticResource MaterialSecondaryButtonStyle}"
+                                Command="{Binding CheckUpdateCommand}"
+                                Content="检查更新" />
+                        <Button Margin="8,0,0,0"
+                                Style="{StaticResource MaterialPrimaryButtonStyle}"
+                                Command="{Binding InstallUpdateCommand}"
+                                Content="下载并安装" />
+                    </WrapPanel>
                 </StackPanel>
             </materialDesign:Card>
 

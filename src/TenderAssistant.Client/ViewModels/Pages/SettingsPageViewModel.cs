@@ -10,12 +10,15 @@ public sealed class SettingsPageViewModel : ObservableObject
 {
     private readonly OfflineLicenseService _licenseService = new();
     private readonly BidAssistFileCatalogService _fileCatalogService = new();
+    private readonly GitHubUpdateService _updateService = new();
     private string _statusMessage = "日志系统已启用，当前保留最近操作，超过 2000 条自动归档。";
     private ClientApplicationTheme _selectedTheme = AppThemeService.CurrentTheme;
     private string _fileLibraryCachePath = ClientAppSettingsService.FileLibraryCachePath;
     private string _sourceFileLibraryPath = ClientAppSettingsService.SourceFileLibraryPath;
     private string _applicantName = Environment.UserName;
     private string _licenseStatus = string.Empty;
+    private string _updateStatusMessage = "尚未检查更新。";
+    private UpdateCheckResult? _latestUpdate;
 
     public SettingsPageViewModel()
     {
@@ -28,6 +31,9 @@ public sealed class SettingsPageViewModel : ObservableObject
         SyncFileLibraryCommand = new AsyncRelayCommand(SyncFileLibraryAsync);
         ExportLicenseRequestCommand = new RelayCommand(_ => ExportLicenseRequest());
         ImportActivationCommand = new RelayCommand(_ => ImportActivation());
+        CheckUpdateCommand = new AsyncRelayCommand(CheckUpdateAsync);
+        InstallUpdateCommand = new AsyncRelayCommand(InstallUpdateAsync, () => CanInstallUpdate);
+        OpenReleasePageCommand = new RelayCommand(_ => OpenReleasePage());
 
         OperationLogService.Info("settings", "open", "打开设置与日志页面。");
         Refresh();
@@ -111,6 +117,16 @@ public sealed class SettingsPageViewModel : ObservableObject
         private set => SetProperty(ref _licenseStatus, value);
     }
 
+    public string CurrentVersionText => $"当前版本：{_updateService.CurrentVersion}";
+
+    public string UpdateStatusMessage
+    {
+        get => _updateStatusMessage;
+        private set => SetProperty(ref _updateStatusMessage, value);
+    }
+
+    public bool CanInstallUpdate => _latestUpdate?.HasUpdate == true && !string.IsNullOrWhiteSpace(_latestUpdate.AssetDownloadUrl);
+
     public RelayCommand RefreshCommand { get; }
 
     public RelayCommand ArchiveCommand { get; }
@@ -128,6 +144,12 @@ public sealed class SettingsPageViewModel : ObservableObject
     public RelayCommand ExportLicenseRequestCommand { get; }
 
     public RelayCommand ImportActivationCommand { get; }
+
+    public AsyncRelayCommand CheckUpdateCommand { get; }
+
+    public AsyncRelayCommand InstallUpdateCommand { get; }
+
+    public RelayCommand OpenReleasePageCommand { get; }
 
     public void Refresh()
     {
@@ -272,6 +294,58 @@ public sealed class SettingsPageViewModel : ObservableObject
             StatusMessage = $"文件库同步失败：{ex.Message}";
             OperationLogService.Warning("settings", "sync-file-library-failed", StatusMessage);
         }
+    }
+
+    private async Task CheckUpdateAsync()
+    {
+        using var status = TaskStatusService.Instance.Begin("正在检查 GitHub Release 更新...");
+        await Task.Yield();
+        _latestUpdate = await _updateService.CheckLatestAsync();
+        UpdateStatusMessage = _latestUpdate.Message;
+        StatusMessage = _latestUpdate.Message;
+        InstallUpdateCommand.RaiseCanExecuteChanged();
+
+        if (_latestUpdate.IsSuccess)
+        {
+            OperationLogService.Info("settings", "check-update", UpdateStatusMessage);
+        }
+        else
+        {
+            OperationLogService.Warning("settings", "check-update-failed", UpdateStatusMessage);
+        }
+    }
+
+    private async Task InstallUpdateAsync()
+    {
+        if (_latestUpdate is null || !CanInstallUpdate)
+        {
+            UpdateStatusMessage = "没有可下载的更新安装包。";
+            return;
+        }
+
+        using var status = TaskStatusService.Instance.Begin("正在下载更新安装包...");
+        await Task.Yield();
+        try
+        {
+            var installerPath = await _updateService.DownloadInstallerAsync(_latestUpdate);
+            UpdateStatusMessage = $"更新安装包已下载：{installerPath}。安装程序已启动，请按提示完成更新。";
+            StatusMessage = UpdateStatusMessage;
+            OperationLogService.Info("settings", "download-update", UpdateStatusMessage);
+            GitHubUpdateService.LaunchInstaller(installerPath);
+        }
+        catch (Exception ex)
+        {
+            UpdateStatusMessage = $"下载或启动更新失败：{ex.Message}";
+            StatusMessage = UpdateStatusMessage;
+            OperationLogService.Warning("settings", "download-update-failed", UpdateStatusMessage);
+        }
+    }
+
+    private void OpenReleasePage()
+    {
+        var releaseUrl = _latestUpdate?.ReleaseUrl ?? GitHubUpdateService.LatestReleasePageUrl;
+        GitHubUpdateService.OpenReleasePage(releaseUrl);
+        OperationLogService.Info("settings", "open-release-page", $"打开更新源：{releaseUrl}");
     }
 }
 
