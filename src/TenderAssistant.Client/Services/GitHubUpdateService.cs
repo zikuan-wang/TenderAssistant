@@ -2,7 +2,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Reflection;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
@@ -16,7 +15,7 @@ public sealed class GitHubUpdateService
     private static readonly Regex VersionRegex = new(@"\d+(?:\.\d+){0,3}", RegexOptions.Compiled);
     private static readonly HttpClient Client = CreateHttpClient();
 
-    public Version CurrentVersion { get; } = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0, 0);
+    public Version CurrentVersion { get; } = AppVersionService.CurrentVersion;
 
     public async Task<UpdateCheckResult> CheckLatestAsync(CancellationToken cancellationToken = default)
     {
@@ -76,7 +75,7 @@ public sealed class GitHubUpdateService
         var updateDirectory = Path.Combine(Path.GetTempPath(), "TenderAssistant", "Updates");
         Directory.CreateDirectory(updateDirectory);
         var fileName = string.IsNullOrWhiteSpace(update.AssetName)
-            ? $"TenderAssistant.Client.Setup-{update.LatestVersion}.msi"
+            ? $"TenderAssistant.Client.Setup-{AppVersionService.Format(update.LatestVersion)}.msi"
             : update.AssetName;
         var targetPath = Path.Combine(updateDirectory, fileName);
 
@@ -162,12 +161,12 @@ public sealed record UpdateCheckResult(
         var assetMessage = string.IsNullOrWhiteSpace(assetDownloadUrl)
             ? "，但该 Release 未上传 MSI 安装包"
             : string.Empty;
-        return new UpdateCheckResult(true, true, currentVersion, latestVersion, $"发现新版本 {latestVersion}{assetMessage}。", releaseUrl, assetDownloadUrl, assetName);
+        return new UpdateCheckResult(true, true, currentVersion, latestVersion, $"发现新版本 {AppVersionService.Format(latestVersion)}{assetMessage}。", releaseUrl, assetDownloadUrl, assetName);
     }
 
     public static UpdateCheckResult NoUpdate(Version currentVersion, Version latestVersion, string releaseUrl)
     {
-        return new UpdateCheckResult(true, false, currentVersion, latestVersion, $"当前已是最新版本 {currentVersion}。", releaseUrl, null, null);
+        return new UpdateCheckResult(true, false, currentVersion, latestVersion, $"当前已是最新版本 {AppVersionService.Format(currentVersion)}。", releaseUrl, null, null);
     }
 
     public static UpdateCheckResult Failed(string message, Version currentVersion)

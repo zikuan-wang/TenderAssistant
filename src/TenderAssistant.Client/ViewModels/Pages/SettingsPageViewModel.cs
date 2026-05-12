@@ -117,7 +117,7 @@ public sealed class SettingsPageViewModel : ObservableObject
         private set => SetProperty(ref _licenseStatus, value);
     }
 
-    public string CurrentVersionText => $"当前版本：{_updateService.CurrentVersion}";
+    public string CurrentVersionText => $"当前版本：{AppVersionService.CurrentVersionText}";
 
     public string UpdateStatusMessage
     {

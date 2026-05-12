@@ -5,12 +5,13 @@
   <Package
       Name="投标助手"
       Manufacturer="zikuan wang"
-      Version="1.1.0"
+      Version="1.1.1"
       UpgradeCode="{7F41D5F4-11ED-4E72-B92D-3A6758A0DF43}"
       Scope="perUser"
       Codepage="936">
 
-    <MajorUpgrade DowngradeErrorMessage="已安装更新版本的投标助手。" />
+    <MajorUpgrade AllowSameVersionUpgrades="yes"
+                  DowngradeErrorMessage="已安装更新版本的投标助手。" />
     <MediaTemplate EmbedCab="yes" />
     <util:CloseApplication Id="CloseTenderAssistantClient"
                            Target="TenderAssistant.Client.exe"

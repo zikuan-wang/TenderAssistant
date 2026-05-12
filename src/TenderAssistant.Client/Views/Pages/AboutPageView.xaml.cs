@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using TenderAssistant.Client.Services;
 
 namespace TenderAssistant.Client.Views.Pages;
 
@@ -10,5 +11,5 @@ public partial class AboutPageView : UserControl
         DataContext = this;
     }
 
-    public string VersionText => $"版本：{GetType().Assembly.GetName().Version?.ToString(3) ?? "1.0.1"}";
+    public string VersionText => $"版本：{AppVersionService.CurrentVersionText}";
 }
