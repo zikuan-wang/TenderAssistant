@@ -15,6 +15,6 @@ public static class AppVersionService
             return "0.0.0";
         }
 
-        return $"{Math.Max(0, version.Major)}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}.{Math.Max(0, version.Revision)}";
+        return $"{Math.Max(0, version.Major)}.{Math.Max(0, version.Minor)}.{Math.Max(0, version.Build)}";
     }
 }
