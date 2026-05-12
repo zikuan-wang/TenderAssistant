@@ -5,9 +5,9 @@
   <Package
       Name="投标助手"
       Manufacturer="zikuan wang"
-      Version="1.1.1"
+      Version="1.2.0"
       UpgradeCode="{7F41D5F4-11ED-4E72-B92D-3A6758A0DF43}"
-      Scope="perUser"
+      Scope="perMachine"
       Codepage="936">
 
     <MajorUpgrade AllowSameVersionUpgrades="yes"
@@ -24,27 +24,27 @@
     <Property Id="ARPPRODUCTICON" Value="AppIcon.ico" />
     <Property Id="REMEMBEREDINSTALLFOLDER">
       <RegistrySearch Id="SearchRememberedInstallFolder"
-                      Root="HKCU"
+                      Root="HKLM"
                       Key="Software\TenderAssistant"
                       Name="InstallFolder"
                       Type="raw" />
     </Property>
 
-    <!-- 用户选择父目录，实际始终安装到其下的“投标助手”子目录。 -->
-    <Property Id="WIXUI_INSTALLDIR" Value="APPLICATIONROOTDIRECTORY" />
+    <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
     <WixVariable Id="WixUILicenseRtf" Value="$(var.ProjectDir)License.rtf" />
 
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="TenderAssistant" />
+    </StandardDirectory>
+
     <StandardDirectory Id="LocalAppDataFolder">
-      <Directory Id="APPLICATIONROOTDIRECTORY" Name="Programs">
-        <Directory Id="INSTALLFOLDER" Name="投标助手" />
-      </Directory>
       <Directory Id="LegacyTenderAssistantLocalAppDataFolder" Name="TenderAssistant">
         <Directory Id="LegacyClientInstallFolder" Name="Client" />
       </Directory>
     </StandardDirectory>
 
     <StandardDirectory Id="ProgramMenuFolder">
-      <Directory Id="ApplicationProgramsFolder" Name="投标助手" />
+      <Directory Id="ApplicationProgramsFolder" Name="TenderAssistant" />
     </StandardDirectory>
 
     <StandardDirectory Id="DesktopFolder" />
@@ -55,6 +55,10 @@
 
     <ComponentGroup Id="ProductComponents">
       <Component Id="ClientExecutableComponent" Directory="INSTALLFOLDER" Guid="{1803402F-E451-414B-85C5-B4BD11B56EF6}">
+        <CreateFolder>
+          <util:PermissionEx User="Users"
+                             GenericAll="yes" />
+        </CreateFolder>
         <File Id="ClientExecutable"
               Source="$(var.PublishDir)\TenderAssistant.Client.exe" />
         <RemoveFile Id="RemoveInstalledActivationFile"
@@ -75,16 +79,13 @@
         <RemoveFolder Id="RemoveInstallFolderIfEmpty"
                       Directory="INSTALLFOLDER"
                       On="uninstall" />
-        <RemoveFolder Id="RemoveApplicationRootDirectoryIfEmpty"
-                      Directory="APPLICATIONROOTDIRECTORY"
-                      On="uninstall" />
-        <RegistryValue Root="HKCU"
+        <RegistryValue Root="HKLM"
                        Key="Software\TenderAssistant"
                        Name="ClientExecutableInstalled"
                        Type="integer"
                        Value="1"
                        KeyPath="yes" />
-        <RegistryValue Root="HKCU"
+        <RegistryValue Root="HKLM"
                        Key="Software\TenderAssistant"
                        Name="InstallFolder"
                        Type="string"
@@ -94,7 +95,7 @@
       <Component Id="LicenseFileComponent" Directory="INSTALLFOLDER" Guid="{183307C5-34C7-447E-B793-7F67F3845681}">
         <File Id="LicenseFile"
               Source="$(var.ProjectDir)License.rtf" />
-        <RegistryValue Root="HKCU"
+        <RegistryValue Root="HKLM"
                        Key="Software\TenderAssistant"
                        Name="LicenseFileInstalled"
                        Type="integer"

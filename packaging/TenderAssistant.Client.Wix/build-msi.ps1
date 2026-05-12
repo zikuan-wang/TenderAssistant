@@ -24,6 +24,7 @@ dotnet publish (Join-Path $repoRoot "src\TenderAssistant.Client\TenderAssistant.
     --output $publishDir
 
 wix build (Join-Path $PSScriptRoot "Product.wxs") `
+    -arch x64 `
     -ext WixToolset.UI.wixext `
     -ext WixToolset.Util.wixext `
     -d "ProjectDir=$PSScriptRoot\" `
